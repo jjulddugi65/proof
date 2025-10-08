@@ -1,1 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOR Pi MAXIMUM TRANSACTION</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+        .header {
+            background-color: #5b21b6;
+            color: white;
+        }
+        .pi-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            color: white;
+            transition: background-color 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        .login-button {
+            background-color: #fca5a5;
+        }
+        .login-button:hover:not(:disabled) {
+            background-color: #f87171;
+        }
+        .payment-button {
+            background-color: #34d399;
+        }
+        .payment-button:hover:not(:disabled) {
+            background-color: #10b981;
+        }
+        .payment-button:disabled, .login-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #block_explorer_iframe {
+            width: 100%;
+            height: 300px;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            margin-top: 0.25rem;
+        }
+        .scp-consensus {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 0.5rem 1rem;
+            background-color: #5b21b6;
+            color: white;
+            border-bottom-left-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: bold;
+            transition: opacity 0.5s;
+        }
+        .ledger-header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+        .download-button {
+            background-color: #60a5fa;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        .download-button:hover {
+            background-color: #3b82f6;
+        }
+        #ledger_table {
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: left;
+            font-size: 0.875rem;
+            width: 100%;
+        }
+        #ledger_table th, #ledger_table td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        #ledger_table tr:last-child td {
+            border-bottom: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        .status-success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body class="p-6 md:p-10">
+
+    <div id="message_box" style="z-index: 1000; position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) scale(0); transition: transform 0.3s; padding: 0.75rem 1.5rem; border-radius: 0.5rem; color: white; background-color: #1f2937;">
+        App Status: Initializing...
+    </div>
+
+    <div class="container">
+        <div class="header rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between mb-8">
+            <div class="flex-1">
+                <p class="text-white text-2xl font-bold mb-2">FOR Pi MAXIMUM TRANSACTION</p>
+                <p class="text-gray-300 text-sm mb-4">Monitor real-time transactions and delegated AI activities</p>
+            </div>
+            <div class="md:ml-8 mt-4 md:mt-0">
+                <p id="sdk_status" class="text-yellow-300 text-sm font-bold text-center">SDK: Loading...</p>
+            </div>
+        </div>
+
+        <div class="simulator-section bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h2 class="text-2xl font-bold mb-4">Transaction Delegation Simulation</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <button id="login_button" class="pi-button login-button" onclick="piAuthenticate()">
+                    🔐 1. Pi Login (Identify User)
+                </button>
+                <button id="payment_button" class="pi-button payment-button" onclick="piRequestPayment()" disabled>
+                    💰 2. Request Pi Payment (Start SC)
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="piAmount" class="font-medium text-gray-700">Pi Amount:</label>
+                    <input type="number" id="piAmount" step="0.1" value="2.5" placeholder="e.g. 2.5">
+                </div>
+                <div>
+                    <label for="taskType" class="font-medium text-gray-700">Task Type:</label>
+                    <select id="taskType">
+                        <option value="Drawing">창작: 그림 (Drawing)</option>
+                        <option value="Animation">창작: 애니메이션 (Animation)</option>
+                        <option value="VideoEdit">창작: 동영상 편집 (Video Edit)</option>
+                        <option value="Research">데이터: 리서치/분석 (Research)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <iframe id="block_explorer_iframe" 
+                src="https://blockexplorer.minepi.com/testnet/" 
+                title="Pi Testnet Block Explorer" 
+                frameborder="0"
+                allow="autoplay; encrypted-media"></iframe>
+
+        <div class="chart-section bg-white p-6 rounded-xl shadow-lg mb-8">
+            <h3 class="text-lg font-bold mb-2 text-gray-700">Pi Economy Inflation Index (Simulated)</h3>
+            <div id="inflation_chart"></div>
+        </div>
+
+        <div class="table-container p-6 mb-8 relative bg-white rounded-xl shadow-lg">
+            <div class="ledger-header-container">
+                <h2 class="text-2xl font-bold text-gray-800">TRANSACTION LEDGER</h2>
+                <button class="download-button" onclick="downloadLedger()">📥 Download CSV</button>
+                <div id="scp_consensus_status" class="scp-consensus" style="opacity: 0;">SCP Consensus: 0/10001 Nodes</div>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="ledger_table">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th>ID</th>
+                            <th>Time</th>
+                            <th>Sender</th>
+                            <th>Smart Contract</th>
+                            <th>Pi Amount</th>
+                            <th>Task</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="smart_contract_ledger"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 핵심 변수
+        let transactionID = 0;
+        const maxNodes = 10001;
+        let authenticatedUser = null;
+        let piSDK = null;
+
+        // 메시지 표시 함수
+        function showMessage(message, isSuccess = true) {
+            const messageBox = document.getElementById('message_box');
+            if (!messageBox) return;
+
+            messageBox.textContent = message;
+            messageBox.style.backgroundColor = isSuccess ? '#10b981' : '#ef4444';
+            messageBox.style.transform = 'translateX(-50%) scale(1)';
+            
+            setTimeout(() => {
+                messageBox.style.transform = 'translateX(-50%) scale(0)';
+            }, 3000);
+        }
+
+        // SCP 합의 애니메이션
+        function startSCPAnimation(scType) {
+            const scpStatusElement = document.getElementById('scp_consensus_status');
+            if (!scpStatusElement) return;
+
+            scpStatusElement.style.opacity = 1;
+            const consensusSteps = [31, 314, 3141, maxNodes];
+            let stepIndex = 0;
+
+            showMessage(`AI selected ${scType}. Starting SCP Consensus...`, true);
+            
+            const interval = setInterval(() => {
+                const currentCount = consensusSteps[stepIndex];
+                scpStatusElement.textContent = `SCP Consensus: ${currentCount}/${maxNodes} Nodes`;
+                stepIndex++;
+                
+                if (stepIndex >= consensusSteps.length) {
+                    clearInterval(interval);
+                    scpStatusElement.textContent = `SCP Consensus: ${maxNodes}/${maxNodes} Nodes ✓`;
+                }
+            }, 500);
+        }
+
+        // Pi SDK 초기화
+        async function initPiSDK() {
+            try {
+                piSDK = window.Pi;
+                
+                // --- 이 부분이 Slug 할당 성공 앱의 새로운 App Key로 수정되었습니다. ---
+                await piSDK.init({ 
+                    version: "2.0",
+                    sandbox: true,  // 테스트넷 모드
+                    key: "w96skbm55afakw6bt0bckj11zz4eiqr4vd4iuaztthjvxo9r6eqicgehydy0ufnf" // 성공한 앱의 App Key
+                });
+                // ------------------------------------------------------------------
+                
+                document.getElementById('sdk_status').textContent = 'SDK: Ready ✓';
+                document.getElementById('sdk_status').className = 'text-green-300 text-sm font-bold text-center';
+                showMessage('Pi SDK initialized successfully!', true);
+                
+            } catch (error) {
+                console.error('SDK initialization error:', error);
+                document.getElementById('sdk_status').textContent = 'SDK: Error ✗';
+                document.getElementById('sdk_status').className = 'text-red-300 text-sm font-bold text-center';
+                showMessage('SDK initialization failed. Check console.', false);
+            }
+        }
+
+        // Pi 인증
+        async function piAuthenticate() {
+            if (!piSDK) {
+                showMessage('SDK not initialized!', false);
+                return;
+            }
+
+            try {
+                // 올바른 스코프 사용
+                const scopes = ['username', 'payments'];
+                
+                const authResult = await piSDK.authenticate(scopes, onIncompletePaymentFound);
+                
+                authenticatedUser = authResult.user.username;
+                const uid = authResult.user.uid || 'N/A';
+                
+                showMessage(`✓ Authenticated: ${authenticatedUser}`, true);
+                
+                document.getElementById('login_button').disabled = true;
+                document.getElementById('payment_button').disabled = false;
+                
+                console.log('Auth successful:', authResult);
+                
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showMessage(`Auth failed: ${error.message}`, false);
+            }
+        }
+
+        // 미완료 결제 처리
+        function onIncompletePaymentFound(payment) {
+            console.log('Incomplete payment found:', payment);
+            showMessage('Found incomplete payment. Please complete it.', false);
+            return payment;
+        }
+
+        // Pi 결제 요청
+        async function piRequestPayment() {
+            if (!authenticatedUser) {
+                showMessage('Please login first!', false);
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('piAmount').value);
+            const taskType = document.getElementById('taskType').value;
+
+            if (isNaN(amount) || amount <= 0) {
+                showMessage('Invalid amount!', false);
+                return;
+            }
+
+            try {
+                const paymentData = {
+                    amount: amount,
+                    memo: `AI Task: ${taskType}`,
+                    metadata: { 
+                        taskType: taskType,
+                        timestamp: Date.now()
+                    }
+                };
+
+                const callbacks = {
+                    onReadyForServerApproval: function(paymentId) {
+                        console.log('Payment ready for approval:', paymentId);
+                        showMessage('✓ Payment approved! Processing...', true);
+                        
+                        // 시뮬레이션 실행 (실제로는 서버에서 승인 후 실행)
+                        setTimeout(() => runSimulation(amount, taskType, paymentId), 1000);
+                    },
+                    onReadyForServerCompletion: function(paymentId, txid) {
+                        console.log('Payment ready for completion:', paymentId, txid);
+                        showMessage('✓ Payment completed on blockchain!', true);
+                    },
+                    onCancel: function(paymentId) {
+                        console.log('Payment cancelled:', paymentId);
+                        showMessage('Payment cancelled by user.', false);
+                    },
+                    onError: function(error, payment) {
+                        console.error('Payment error:', error, payment);
+                        showMessage(`Payment error: ${error.message}`, false);
+                    }
+                };
+
+                const payment = piSDK.createPayment(paymentData, callbacks);
+                console.log('Payment created:', payment);
+                
+            } catch (error) {
+                console.error('Payment request error:', error);
+                showMessage(`Payment failed: ${error.message}`, false);
+            }
+        }
+
+        // 시뮬레이션 실행
+        function runSimulation(amount, taskType, paymentId) {
+            const scType = amount <= 2.0 ? '1st SC (Survival)' : '2nd SC (Market)';
+            startSCPAnimation(scType);
+
+            const ledger = document.getElementById('smart_contract_ledger');
+            transactionID++;
+            const mainID = `TX-${transactionID}`;
+            const subAmount = (amount / 2).toFixed(4);
+            const sender = authenticatedUser || 'System';
+            const currentTime = new Date().toLocaleTimeString();
+
+            // Main Transaction
+            const mainRow = `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-2 py-2 font-bold">${mainID}</td>
+                    <td class="px-2 py-2">${currentTime}</td>
+                    <td class="px-2 py-2">${sender}</td>
+                    <td class="px-2 py-2">${scType}</td>
+                    <td class="px-2 py-2 text-right font-bold">${amount.toFixed(4)} π</td>
+                    <td class="px-2 py-2">${taskType}</td>
+                    <td class="px-2 py-2"><span class="status-badge status-success">CALLED</span></td>
+                </tr>
+            `;
+
+            // Sub Transaction 1
+            const subRow1 = `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-2 py-2">${mainID}-AI1</td>
+                    <td class="px-2 py-2">${currentTime}</td>
+                    <td class="px-2 py-2">AI Processor 1</td>
+                    <td class="px-2 py-2">Task Processing</td>
+                    <td class="px-2 py-2 text-right text-green-600">+${subAmount} π</td>
+                    <td class="px-2 py-2"> ${taskType} Execution</td>
+                    <td class="px-2 py-2"><span class="status-badge status-success">SUCCESS</span></td>
+                </tr>
+            `;
+
+            // Sub Transaction 2
+            const subRow2 = `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-2 py-2">${mainID}-AI2</td>
+                    <td class="px-2 py-2">${currentTime}</td>
+                    <td class="px-2 py-2">AI Processor 2</td>
+                    <td class="px-2 py-2">Consensus Verification</td>
+                    <td class="px-2 py-2 text-right text-green-600">+${subAmount} π</td>
+                    <td class="px-2 py-2">SC Finalization</td>
+                    <td class="px-2 py-2"><span class="status-badge status-success">FINALIZED</span></td>
+                </tr>
+            `;
+
+            ledger.innerHTML = mainRow + subRow1 + subRow2 + ledger.innerHTML;
+            
+            showMessage('✓ Transaction recorded successfully!', true);
+        }
+
+        // CSV 다운로드
+        function downloadLedger() {
+            const table = document.getElementById('ledger_table');
+            let csv = [];
+
+            // 헤더
+            const headers = Array.from(table.querySelectorAll('thead th'))
+                .map(th => th.textContent.trim());
+            csv.push(headers.join(','));
+
+            // 데이터
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'))
+                    .map(td => `"${td.textContent.trim()}"`);
+                csv.push(cells.join(','));
+            });
+
+            const csvString = csv.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pi_ledger_${Date.now()}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showMessage('✓ Ledger downloaded!', true);
+        }
+
+        // D3 차트 초기화
+        function initChart() {
+            const data = [1.5, 2.3, 1.8, 2.6, 3.0, 2.7, 3.2];
+            const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+            const chartElement = document.getElementById('inflation_chart');
+            
+            if (!chartElement) return;
+            
+            const width = Math.min(chartElement.clientWidth, 800) - margin.left - margin.right;
+            const height = 250 - margin.top - margin.bottom;
+
+            const svg = d3.select('#inflation_chart').append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleBand()
+                .domain(data.map((_, i) => `Q${i + 1}`))
+                .range([0, width])
+                .padding(0.3);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data) + 0.5])
+                .range([height, 0]);
+
+            g.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+
+            g.append('g')
+                .call(d3.axisLeft(y).ticks(5));
+
+            g.selectAll('.bar')
+                .data(data)
+                .enter().append('rect')
+                .attr('x', (d, i) => x(`Q${i + 1}`))
+                .attr('y', d => y(d))
+                .attr('width', x.bandwidth())
+                .attr('height', d => height - y(d))
+                .attr('fill', '#6366f1');
+        }
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initPiSDK();
+            initChart();
+        });
+    </script>
+</body>
+</html>
